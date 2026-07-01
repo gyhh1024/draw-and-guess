@@ -1,0 +1,17 @@
+[Unit]
+Description=Draw and Guess Game Server
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/draw-and-guess
+ExecStart=/opt/draw-and-guess/draw-and-guess
+Restart=always
+RestartSec=5
+Environment=RUST_LOG=info
+Environment=STATIC_DIR=client/dist
+Environment=PORT=3000
+
+[Install]
+WantedBy=multi-user.target

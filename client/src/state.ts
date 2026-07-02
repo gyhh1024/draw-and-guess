@@ -5,7 +5,7 @@ export interface PlayerInfo {
   is_owner: boolean;
 }
 
-export type Page = 'home' | 'lobby' | 'game' | 'result';
+export type Page = 'home' | 'lobby' | 'game' | 'result' | 'admin';
 
 export interface AppState {
   page: Page;
@@ -19,6 +19,7 @@ export interface AppState {
   wordHint: string;
   secondsLeft: number;
   guessedPlayers: Set<string>;
+  publicUrl: string;
   isDrawing: boolean;
   roundScores: { player_id: string; player_name: string; score: number }[];
   rankings: { player_id: string; player_name: string; score: number }[];
@@ -36,6 +37,7 @@ export const state: AppState = {
   wordHint: '',
   secondsLeft: 0,
   guessedPlayers: new Set(),
+  publicUrl: '',
   isDrawing: false,
   roundScores: [],
   rankings: [],

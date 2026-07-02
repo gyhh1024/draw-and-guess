@@ -58,9 +58,30 @@ def init_db() -> None:
             score INTEGER NOT NULL,
             FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
         );
+        CREATE TABLE IF NOT EXISTS words (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            word TEXT NOT NULL,
+            category TEXT NOT NULL,
+            created_at TEXT DEFAULT (datetime('now')),
+            UNIQUE(word, category)
+        );
     """)
     conn.commit()
+    # Seed words from word pool if table is empty
+    count = conn.execute("SELECT COUNT(*) FROM words").fetchone()[0]
+    if count == 0:
+        _seed_default_words(conn)
+        conn.commit()
     conn.close()
+
+
+def _seed_default_words(conn: sqlite3.Connection) -> None:
+    """Seed the words table with the built-in word pool."""
+    from words import WORD_POOL
+    conn.executemany(
+        "INSERT OR IGNORE INTO words (word, category) VALUES (?, ?)",
+        WORD_POOL,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -187,3 +208,98 @@ def load_all_rooms(manager) -> None:
 
     conn.close()
     print(f"Loaded {len(rows)} rooms from database")
+
+
+# ---------------------------------------------------------------------------
+# Word operations (admin)
+# ---------------------------------------------------------------------------
+
+
+def get_all_words(category: str | None = None) -> list[dict]:
+    """Return all words, optionally filtered by category."""
+    conn = get_db()
+    if category:
+        rows = conn.execute(
+            "SELECT id, word, category, created_at FROM words WHERE category = ? ORDER BY category, word",
+            (category,),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT id, word, category, created_at FROM words ORDER BY category, word",
+        ).fetchall()
+    result = [dict(r) for r in rows]
+    conn.close()
+    return result
+
+
+def get_categories() -> list[str]:
+    """Return all distinct word categories."""
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT DISTINCT category FROM words ORDER BY category"
+    ).fetchall()
+    result = [r["category"] for r in rows]
+    conn.close()
+    return result
+
+
+def create_word(word: str, category: str) -> int:
+    """Create a new word, returning its ID. Raises sqlite3.IntegrityError on duplicate."""
+    conn = get_db()
+    cursor = conn.execute(
+        "INSERT INTO words (word, category) VALUES (?, ?)",
+        (word.strip(), category.strip()),
+    )
+    conn.commit()
+    word_id = cursor.lastrowid
+    conn.close()
+    return word_id
+
+
+def update_word(word_id: int, word: str, category: str) -> bool:
+    """Update an existing word. Returns True if updated, False if not found."""
+    conn = get_db()
+    cursor = conn.execute(
+        "UPDATE words SET word = ?, category = ? WHERE id = ?",
+        (word.strip(), category.strip(), word_id),
+    )
+    conn.commit()
+    updated = cursor.rowcount > 0
+    conn.close()
+    return updated
+
+
+def delete_word(word_id: int) -> bool:
+    """Delete a word by ID. Returns True if deleted, False if not found."""
+    conn = get_db()
+    cursor = conn.execute("DELETE FROM words WHERE id = ?", (word_id,))
+    conn.commit()
+    deleted = cursor.rowcount > 0
+    conn.close()
+    return deleted
+
+
+def seed_words_from_pool() -> int:
+    """Re-seed the words table from words.py WORD_POOL. Returns count of inserted rows."""
+    from words import WORD_POOL
+    conn = get_db()
+    conn.execute("DELETE FROM words")
+    conn.executemany(
+        "INSERT OR IGNORE INTO words (word, category) VALUES (?, ?)",
+        WORD_POOL,
+    )
+    count = conn.execute("SELECT COUNT(*) FROM words").fetchone()[0]
+    conn.commit()
+    conn.close()
+    return count
+
+
+def get_random_words(count: int) -> list[tuple[str, str]]:
+    """Return `count` random (word, category) pairs from the words table."""
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT word, category FROM words ORDER BY RANDOM() LIMIT ?",
+        (count,),
+    ).fetchall()
+    conn.close()
+    return [(r["word"], r["category"]) for r in rows]

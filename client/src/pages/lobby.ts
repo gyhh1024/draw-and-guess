@@ -83,7 +83,8 @@ copyBtn.addEventListener('click', () => {
 });
 
 inviteBtn.addEventListener('click', () => {
-  const url = `${location.origin}${location.pathname}?room=${state.roomId}`;
+  const base = state.publicUrl || location.origin;
+  const url = `${base}/?room=${state.roomId}`;
   navigator.clipboard.writeText(url);
   inviteBtn.textContent = '链接已复制!';
   setTimeout(() => { inviteBtn.textContent = '复制邀请链接'; }, 1500);

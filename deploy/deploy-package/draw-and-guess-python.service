@@ -13,6 +13,8 @@ Environment=STATIC_DIR=client/dist
 Environment=PORT=3000
 Environment=DB_PATH=/opt/draw-and-guess/game.db
 Environment=LOG_LEVEL=info
+Environment=PUBLIC_URL=
+Environment=ADMIN_PASSWORD=
 
 [Install]
 WantedBy=multi-user.target

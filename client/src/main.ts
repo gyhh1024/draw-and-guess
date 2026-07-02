@@ -4,6 +4,7 @@ import './pages/home';
 import './pages/lobby';
 import './pages/game';
 import './pages/result';
+import './pages/admin';
 import './style.css';
 
 // Page router: show/hide pages based on state.page
@@ -13,6 +14,7 @@ onStateChange(s => {
     lobby: 'page-lobby',
     game: 'page-game',
     result: 'page-result',
+    admin: 'page-admin',
   };
   Object.entries(pages).forEach(([name, id]) => {
     const el = document.getElementById(id);
@@ -20,8 +22,27 @@ onStateChange(s => {
   });
 });
 
+// Detect admin route
+const isAdmin = location.hash === '#/admin';
+if (isAdmin) {
+  setState({ page: 'admin' });
+}
+
+async function loadConfig() {
+  try {
+    const res = await fetch('/api/config');
+    const data = await res.json();
+    if (data.public_url) {
+      setState({ publicUrl: data.public_url });
+    }
+  } catch {
+    // Fallback to location.origin
+  }
+}
+
 // Auto-reconnect on page refresh — verify room still exists first
 async function tryReconnect() {
+  if (isAdmin) return;  // admin page, skip game reconnect
   const saved = loadSession();
   if (!saved?.roomId || !saved?.playerId || !saved?.nickname) {
     setState({ page: 'home' });
@@ -47,5 +68,7 @@ async function tryReconnect() {
     setState({ page: 'home' });
   });
 }
+
+loadConfig();
 
 tryReconnect();

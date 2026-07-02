@@ -189,6 +189,14 @@ WORD_POOL: list[tuple[str, str]] = [
 
 
 def pick_words(count: int) -> list[tuple[str, str]]:
-    """Return `count` random (word, category) pairs from the pool."""
+    """Return `count` random (word, category) pairs, trying DB first."""
+    try:
+        from db import get_random_words
+        result = get_random_words(count)
+        if result:
+            return result
+    except Exception:
+        pass  # DB not available or table missing — fall through
+    # Fallback to hardcoded word pool
     n = min(count, len(WORD_POOL))
     return random.sample(WORD_POOL, n)

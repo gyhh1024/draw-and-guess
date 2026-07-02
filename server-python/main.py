@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from db import init_db, load_all_rooms
+from admin import router as admin_router
 from models import RoomCheckResponse, CreateRoomResponse
 from room_manager import RoomManager
 from ws_handler import handle_ws
@@ -112,9 +113,18 @@ async def check_room(room_id: str, request: Request) -> JSONResponse:
     return JSONResponse(RoomCheckResponse(exists=exists).model_dump())
 
 
+@app.get("/api/config")
+async def get_config() -> dict:
+    return {"public_url": os.getenv("PUBLIC_URL", None)}
+
+
 @app.get("/health")
 async def health() -> dict:
     return {"status": "ok"}
+
+
+# Admin routes
+app.include_router(admin_router)
 
 
 # ---------------------------------------------------------------------------

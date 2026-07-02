@@ -4,16 +4,15 @@ After=network.target
 
 [Service]
 Type=simple
-User=www-data
-WorkingDirectory=/opt/draw-and-guess
-ExecStart=/opt/draw-and-guess/venv/bin/uvicorn main:app --host 0.0.0.0 --port 3000
+User=admin
+WorkingDirectory=/home/admin/draw-and-guess/server-python
+ExecStart=/home/admin/draw-and-guess/venv/bin/uvicorn main:app --host 0.0.0.0 --port 3000
 Restart=always
 RestartSec=5
-Environment=STATIC_DIR=client/dist
-Environment=PORT=3000
-Environment=DB_PATH=/opt/draw-and-guess/game.db
+Environment=STATIC_DIR=../client/dist
+Environment=DB_PATH=/home/admin/draw-and-guess/game.db
 Environment=LOG_LEVEL=info
-Environment=PUBLIC_URL=
+Environment=PUBLIC_URL=https://yysls-draw-and-guess.site
 Environment=ADMIN_PASSWORD=
 
 [Install]

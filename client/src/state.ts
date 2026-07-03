@@ -5,6 +5,14 @@ export interface PlayerInfo {
   is_owner: boolean;
 }
 
+export interface RoomSummary {
+  room_id: string;
+  player_count: number;
+  owner_name: string;
+  has_password: boolean;
+  phase: string;
+}
+
 export type Page = 'home' | 'lobby' | 'game' | 'result' | 'admin';
 
 export interface AppState {
@@ -23,6 +31,7 @@ export interface AppState {
   isDrawing: boolean;
   roundScores: { player_id: string; player_name: string; score: number }[];
   rankings: { player_id: string; player_name: string; score: number }[];
+  roomList: RoomSummary[];
 }
 
 export const state: AppState = {
@@ -41,6 +50,7 @@ export const state: AppState = {
   isDrawing: false,
   roundScores: [],
   rankings: [],
+  roomList: [],
 };
 
 type Listener = (s: AppState) => void;

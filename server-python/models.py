@@ -32,6 +32,15 @@ class ScoreEntry(BaseModel):
 class CreateRoomResponse(BaseModel):
     room_id: str
     player_id: str
+    has_password: bool = False
+
+
+class RoomSummary(BaseModel):
+    room_id: str
+    player_count: int
+    owner_name: str
+    has_password: bool
+    phase: str
 
 
 class RoomCheckResponse(BaseModel):
@@ -54,6 +63,7 @@ class DrawData(BaseModel):
 class JoinRoomData(BaseModel):
     nickname: str
     player_id: str = ""  # client sends this to reconnect
+    password: str = ""
 
 
 class JoinRoom(BaseModel):

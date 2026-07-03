@@ -58,6 +58,8 @@ export class DrawingCanvas {
       this.ctx.strokeStyle = this.color;
       this.ctx.lineWidth = this.width;
       this.ctx.stroke();
+      this.ctx.beginPath();
+      this.ctx.moveTo(p.x, p.y);
       this.emit('move', p.x, p.y);
     });
 
@@ -92,12 +94,18 @@ export class DrawingCanvas {
       this.ctx.strokeStyle = data.color;
       this.ctx.lineWidth = data.width;
       this.ctx.stroke();
+      this.ctx.beginPath();
+      this.ctx.moveTo(data.x, data.y);
+    } else if (data.action === 'end') {
+      this.ctx.beginPath();
     } else if (data.action === 'clear') {
       this.ctx.fillStyle = '#ffffff';
       this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+      this.ctx.beginPath();
     } else if (data.action === 'undo') {
       if (this.undoStack.length > 0) {
         this.ctx.putImageData(this.undoStack.pop()!, 0, 0);
+        this.ctx.beginPath();
       }
     }
   }
@@ -106,12 +114,14 @@ export class DrawingCanvas {
     this.ctx.fillStyle = '#ffffff';
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     this.undoStack = [];
+    this.ctx.beginPath();
     this.emit('clear', 0, 0);
   }
 
   undo() {
     if (this.undoStack.length > 0) {
       this.ctx.putImageData(this.undoStack.pop()!, 0, 0);
+      this.ctx.beginPath();
       this.emit('undo', 0, 0);
     }
   }

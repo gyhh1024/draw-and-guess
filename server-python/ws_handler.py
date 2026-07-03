@@ -89,7 +89,7 @@ async def handle_ws(websocket: WebSocket, room_id: str, manager: RoomManager) ->
 
     # ---- Join the room ----
     try:
-        is_owner, is_reconnect = await manager.join_room(room_id, player_id, nickname)
+        is_owner, is_reconnect = await manager.join_room(room_id, player_id, nickname, msg.data.password)
     except ValueError as e:
         err = Error(data=ErrorData(message=str(e)))
         await websocket.send_json(err.model_dump())
@@ -124,8 +124,8 @@ async def handle_ws(websocket: WebSocket, room_id: str, manager: RoomManager) ->
         )
         await manager.broadcast(room_id, pj, exclude=player_id)
 
-    # ---- If game is in progress, send current state to reconnecting player ----
-    if is_reconnect:
+    # ---- If game is in progress, send current state (for both new joins and reconnects) ----
+    if room.phase != GamePhase.WAITING:
         async with room.lock:
             phase = room.phase
             if phase == GamePhase.NEW_ROUND:
@@ -290,7 +290,7 @@ async def process_message(
 
     # ---- Draw ----
     if isinstance(msg, Draw):
-        await manager.broadcast(room_id, DrawDataMsg(data=msg.data))
+        await manager.broadcast(room_id, DrawDataMsg(data=msg.data), exclude=player_id)
         return
 
     # ---- Guess ----

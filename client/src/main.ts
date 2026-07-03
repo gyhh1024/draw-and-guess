@@ -1,4 +1,4 @@
-import { state, onStateChange, setState, loadSession, clearSession } from './state';
+import { state, onStateChange, setState, clearSession } from './state';
 import { connect } from './ws';
 import './pages/home';
 import './pages/lobby';
@@ -40,17 +40,21 @@ async function loadConfig() {
   }
 }
 
-// Auto-reconnect on page refresh — verify room still exists first
+// Auto-reconnect on page refresh — only from URL params (not localStorage)
 async function tryReconnect() {
   if (isAdmin) return;  // admin page, skip game reconnect
-  const saved = loadSession();
-  if (!saved?.roomId || !saved?.playerId || !saved?.nickname) {
+  // Only read from URL params for auto-reconnect; localStorage is just for form pre-fill
+  const sp = new URLSearchParams(location.search);
+  const room = sp.get('room');
+  const pid = sp.get('pid');
+  const nick = sp.get('nick');
+  if (!room || !pid || !nick) {
     setState({ page: 'home' });
     return;
   }
   // Check if room still exists
   try {
-    const res = await fetch(`/api/rooms/${saved.roomId}`);
+    const res = await fetch(`/api/rooms/${room}`);
     const data = await res.json();
     if (!data.exists) {
       clearSession();
@@ -61,8 +65,8 @@ async function tryReconnect() {
     setState({ page: 'home' });
     return;
   }
-  setState({ nickname: saved.nickname, playerId: saved.playerId, roomId: saved.roomId });
-  connect(saved.roomId).then(() => {
+  setState({ nickname: decodeURIComponent(nick), playerId: pid, roomId: room });
+  connect(room).then(() => {
     setState({ page: 'lobby' });
   }).catch(() => {
     setState({ page: 'home' });

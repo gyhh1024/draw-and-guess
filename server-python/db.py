@@ -34,6 +34,7 @@ def init_db() -> None:
             word TEXT DEFAULT '',
             word_category TEXT DEFAULT '',
             seconds_left INTEGER DEFAULT 0,
+            password TEXT DEFAULT '',
             created_at TEXT DEFAULT (datetime('now'))
         );
         CREATE TABLE IF NOT EXISTS players (
@@ -66,6 +67,11 @@ def init_db() -> None:
             UNIQUE(word, category)
         );
     """)
+    # Add password column if it doesn't exist (migration for existing DBs)
+    try:
+        conn.execute("ALTER TABLE rooms ADD COLUMN password TEXT DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
     conn.commit()
     # Seed words from word pool if table is empty
     count = conn.execute("SELECT COUNT(*) FROM words").fetchone()[0]
@@ -96,11 +102,11 @@ def save_room(room) -> None:
     conn = get_db()
     conn.execute("""
         INSERT OR REPLACE INTO rooms (id, owner_id, phase, current_round,
-            total_rounds, current_drawer_id, word, word_category, seconds_left)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            total_rounds, current_drawer_id, word, word_category, seconds_left, password)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (room.id, room.owner_id, room.phase.value, room.current_round,
           room.total_rounds, room.current_drawer_id, room.word,
-          room.word_category, room.seconds_left))
+          room.word_category, room.seconds_left, room.password))
     conn.commit()
     conn.close()
 
@@ -173,6 +179,7 @@ def load_all_rooms(manager) -> None:
         room.word = r["word"]
         room.word_category = r["word_category"]
         room.seconds_left = r["seconds_left"]
+        room.password = r["password"]
         room.guessed_players = {}
         room.word_options = []
         room.rankings = []

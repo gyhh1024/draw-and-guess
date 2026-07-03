@@ -40,6 +40,7 @@ class Room:
 
     def __init__(self, id: str) -> None:
         self.id = id
+        self.password: str = ""  # empty = public room
         self.owner_id: str = ""  # set when first player joins
         self.players: list[Player] = []
         self.phase: GamePhase = GamePhase.WAITING

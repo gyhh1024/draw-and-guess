@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 
 from db import init_db, load_all_rooms
 from admin import router as admin_router
-from models import RoomCheckResponse, CreateRoomResponse
+from models import RoomCheckResponse, CreateRoomResponse, RoomSummary
 from room_manager import RoomManager
 from ws_handler import handle_ws
 
@@ -100,10 +100,23 @@ async def create_room(request: Request) -> JSONResponse:
 
     manager = _get_manager(request)
     player_id = uuid.uuid4().hex
-    rid = manager.create_room()
+    password = ""
+    try:
+        body = await request.json()
+        password = body.get("password", "")
+    except Exception:
+        pass
+    rid = manager.create_room(password=password)
     return JSONResponse(
-        CreateRoomResponse(room_id=rid, player_id=player_id).model_dump()
+        CreateRoomResponse(room_id=rid, player_id=player_id, has_password=bool(password)).model_dump()
     )
+
+
+@app.get("/api/rooms")
+async def list_rooms(request: Request) -> JSONResponse:
+    manager = _get_manager(request)
+    rooms = manager.get_active_rooms()
+    return JSONResponse(rooms)
 
 
 @app.get("/api/rooms/{room_id}")

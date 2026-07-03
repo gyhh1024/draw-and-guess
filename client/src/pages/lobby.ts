@@ -1,4 +1,4 @@
-import { state, setState, saveSession, clearSession } from '../state';
+import { state, setState, saveSession, clearSession, onStateChange } from '../state';
 import { send, on } from '../ws';
 import type { PlayerInfo } from '../state';
 
@@ -47,14 +47,30 @@ function renderPlayers(players: PlayerInfo[]) {
   startHint.style.display = players.length < 2 ? '' : 'none';
 }
 
-// Show room code
-codeDisplay.textContent = state.roomId;
+function refreshUI() {
+  codeDisplay.textContent = state.roomId || '----';
+  if (state.players.length > 0) {
+    renderPlayers(state.players);
+  }
+}
+
+// Update UI every time we enter the lobby
+onStateChange(s => {
+  if (s.page === 'lobby') {
+    refreshUI();
+  }
+});
+
+// Handle page load directly into lobby
+if (state.page === 'lobby') {
+  refreshUI();
+}
 
 // WS message handlers
 on('room_joined', (data: { players: PlayerInfo[]; is_owner: boolean }) => {
   setState({ players: data.players, isOwner: data.is_owner });
   saveSession();
-  renderPlayers(data.players);
+  refreshUI();
 });
 
 on('player_joined', (data: { player: PlayerInfo }) => {
@@ -67,9 +83,6 @@ on('player_left', (data: { player_id: string }) => {
   const players = state.players.filter(p => p.id !== data.player_id);
   setState({ players });
   renderPlayers(players);
-  // Update start button visibility
-  startBtn.style.display = state.isOwner && players.length >= 2 ? '' : 'none';
-  startHint.style.display = players.length < 2 ? '' : 'none';
 });
 
 // game_started is handled by game.ts (loaded after this page,

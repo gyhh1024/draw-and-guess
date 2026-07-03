@@ -34,18 +34,42 @@ class RoomManager:
     # room lifecycle
     # ------------------------------------------------------------------
 
-    def create_room(self) -> str:
+    def create_room(self, password: str = "") -> str:
         """Create an empty room. The first player to join via WS becomes owner."""
         rid = self._gen_room_id()
-        self._rooms[rid] = Room(rid)
+        room = Room(rid)
+        room.password = password
+        self._rooms[rid] = room
         self._subscribers[rid] = {}
         db_save_room(self._rooms[rid])
         db_save_players(rid, self._rooms[rid].players)
         logger.info(f"Room {rid} created (empty, waiting for players)")
         return rid
 
+    def get_active_rooms(self) -> list[dict]:
+        """Return summaries of rooms with at least one connected player (no lock — read-only)."""
+        result = []
+        for rid, room in self._rooms.items():
+            connected = sum(1 for p in room.players if p.is_connected)
+            if connected == 0:
+                continue
+            owner_name = ""
+            if room.owner_id:
+                for p in room.players:
+                    if p.id == room.owner_id:
+                        owner_name = p.nickname
+                        break
+            result.append({
+                "room_id": rid,
+                "player_count": connected,
+                "owner_name": owner_name,
+                "has_password": bool(room.password),
+                "phase": room.phase.value,
+            })
+        return result
+
     async def join_room(
-        self, room_id: str, player_id: str, nickname: str
+        self, room_id: str, player_id: str, nickname: str, password: str = ""
     ) -> tuple[bool, bool]:
         """Returns (is_owner, is_reconnect). Raises ValueError on error."""
         room = self._rooms.get(room_id)
@@ -61,14 +85,20 @@ class RoomManager:
                     logger.info(f"Player {nickname} reconnected to room {room_id}")
                     return player_id == room.owner_id, True
 
+            # Password check for private rooms
+            if room.password and room.password != password:
+                raise ValueError("密码错误")
+
             # New join — check duplicate nickname
             if any(p.nickname == nickname and p.is_connected for p in room.players):
                 raise ValueError("昵称已被使用")
-            if room.phase != GamePhase.WAITING:
-                raise ValueError("游戏已开始，无法加入")
             room.players.append(Player(player_id, nickname))
-            # First player to join becomes the owner
-            if not room.owner_id:
+            # First player to join, or original owner disconnected — become owner
+            owner_connected = any(
+                p.id == room.owner_id and p.is_connected
+                for p in room.players
+            )
+            if not room.owner_id or not owner_connected:
                 room.owner_id = player_id
                 is_owner = True
             else:

@@ -121,6 +121,8 @@ function addChat(msg: string, cls: string = '') {
 
 // Remaining guesses per round
 let remainingGuesses = 0;
+let currentRound = 0;
+let currentDrawerName = '';
 const guessesLeftEl = document.getElementById('guesses-left')!;
 
 function updateGuessesUI() {
@@ -164,6 +166,7 @@ function renderScores() {
 // word_options: received when we are the drawer, so enable drawing
 on('word_options', (data: { words: string[] }) => {
   // We received word_options, so we are the drawer — hide guess input
+  currentDrawerName = state.nickname;
   canvas.setReadOnly(false);
   hintDisplay.textContent = '选一个词开始画!';
   setState({ wordOptions: data.words, isDrawing: true });
@@ -187,10 +190,21 @@ on('word_options', (data: { words: string[] }) => {
 
 on('word_hint', (data: { length: number; pattern: string; category?: string }) => {
   setState({ wordHint: data.pattern });
+  const countNode = document.createElement('span');
+  countNode.style.cssText = 'font-size:13px;color:var(--text-muted);';
+  countNode.textContent = '（' + data.length + '个字）';
   if (data.category) {
-    hintDisplay.innerHTML = `<span style="font-size:12px;color:var(--primary);display:block;letter-spacing:0;">${data.category}</span>${data.pattern}`;
+    const catNode = document.createElement('span');
+    catNode.style.cssText = 'font-size:12px;color:var(--primary);display:block;letter-spacing:0;';
+    catNode.textContent = data.category;
+    hintDisplay.textContent = '';
+    hintDisplay.appendChild(catNode);
+    hintDisplay.appendChild(document.createTextNode(data.pattern + ' '));
+    hintDisplay.appendChild(countNode);
   } else {
-    hintDisplay.textContent = data.pattern;
+    hintDisplay.textContent = '';
+    hintDisplay.appendChild(document.createTextNode(data.pattern + ' '));
+    hintDisplay.appendChild(countNode);
   }
 });
 
@@ -212,6 +226,9 @@ on('role_state', (data: { is_drawer: boolean; word?: string }) => {
   const isDrawer = !!data.is_drawer;
   canvas.setReadOnly(!isDrawer);
   setState({ isDrawing: isDrawer });
+  if (isDrawer) {
+    currentDrawerName = state.nickname;
+  }
   document.getElementById('chat-input')!.style.display = isDrawer ? 'none' : '';
   if (isDrawer) {
     hintDisplay.textContent = data.word ? `你正在画: ${data.word}` : '你正在画画';
@@ -236,6 +253,24 @@ on('round_result', (data: { answer: string; scores: { player_id: string; player_
   setState({ roundScores: data.scores });
   canvas.setReadOnly(true);
   setState({ isDrawing: false });
+
+  // Upload canvas drawing (fire-and-forget)
+  currentRound++;
+  try {
+    const imgData = canvas.getCanvas().toDataURL('image/png');
+    fetch('/api/drawings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        image: imgData,
+        room_id: state.roomId,
+        word: data.answer,
+        drawer_name: currentDrawerName,
+        round: currentRound,
+      }),
+    }).catch(() => {});
+  } catch {}
+
   document.getElementById('chat-input')!.style.display = '';  // show guess input again
   remainingGuesses = 3;
   updateGuessesUI();

@@ -13,7 +13,7 @@ export interface RoomSummary {
   phase: string;
 }
 
-export type Page = 'home' | 'lobby' | 'game' | 'result' | 'admin';
+export type Page = 'home' | 'lobby' | 'game' | 'result' | 'admin' | 'gallery';
 
 export interface AppState {
   page: Page;

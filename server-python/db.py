@@ -66,6 +66,26 @@ def init_db() -> None:
             created_at TEXT DEFAULT (datetime('now')),
             UNIQUE(word, category)
         );
+        CREATE TABLE IF NOT EXISTS drawing_categories (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            sort_order INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT (datetime('now'))
+        );
+        CREATE TABLE IF NOT EXISTS drawings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            filename TEXT NOT NULL,
+            room_id TEXT NOT NULL,
+            drawer_name TEXT NOT NULL,
+            word TEXT NOT NULL,
+            word_category TEXT DEFAULT '',
+            round_num INTEGER DEFAULT 1,
+            category_id INTEGER,
+            is_visible INTEGER DEFAULT 0,
+            file_size INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT (datetime('now')),
+            FOREIGN KEY (category_id) REFERENCES drawing_categories(id) ON DELETE SET NULL
+        );
     """)
     # Add password column if it doesn't exist (migration for existing DBs)
     try:
@@ -77,6 +97,14 @@ def init_db() -> None:
     count = conn.execute("SELECT COUNT(*) FROM words").fetchone()[0]
     if count == 0:
         _seed_default_words(conn)
+        conn.commit()
+    # Seed default drawing categories if table is empty
+    cat_count = conn.execute("SELECT COUNT(*) FROM drawing_categories").fetchone()[0]
+    if cat_count == 0:
+        conn.executemany(
+            "INSERT INTO drawing_categories (name, sort_order) VALUES (?, ?)",
+            [("最雷霆", 1), ("最好看", 2), ("最搞笑", 3)],
+        )
         conn.commit()
     conn.close()
 
@@ -299,6 +327,140 @@ def seed_words_from_pool() -> int:
     conn.commit()
     conn.close()
     return count
+
+
+# ---------------------------------------------------------------------------
+# Drawing operations
+# ---------------------------------------------------------------------------
+
+def save_drawing(filename: str, room_id: str, drawer_name: str, word: str,
+                 word_category: str, round_num: int, file_size: int) -> int:
+    """Save a drawing record. Returns the new drawing ID."""
+    conn = get_db()
+    cursor = conn.execute("""
+        INSERT INTO drawings (filename, room_id, drawer_name, word, word_category, round_num, file_size)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (filename, room_id, drawer_name, word, word_category, round_num, file_size))
+    conn.commit()
+    drawing_id = cursor.lastrowid
+    conn.close()
+    return drawing_id
+
+
+def get_drawings(page: int = 1, per_page: int = 20, category_id: int = 0,
+                 visible_only: bool = False) -> tuple[list[dict], int]:
+    """Return (drawings, total_count)."""
+    conn = get_db()
+    conditions = []
+    params: list = []
+    if visible_only:
+        conditions.append("d.is_visible = 1")
+    if category_id > 0:
+        conditions.append("d.category_id = ?")
+        params.append(category_id)
+    where = " AND ".join(conditions) if conditions else "1=1"
+    total = conn.execute(
+        f"SELECT COUNT(*) FROM drawings d WHERE {where}", params
+    ).fetchone()[0]
+    offset = (page - 1) * per_page
+    rows = conn.execute(
+        f"""SELECT d.*, c.name as category_name
+            FROM drawings d
+            LEFT JOIN drawing_categories c ON d.category_id = c.id
+            WHERE {where}
+            ORDER BY d.created_at DESC
+            LIMIT ? OFFSET ?""",
+        params + [per_page, offset],
+    ).fetchall()
+    result = [dict(r) for r in rows]
+    conn.close()
+    return result, total
+
+
+def update_drawing(drawing_id: int, category_id: int | None = None,
+                   is_visible: bool | None = None) -> bool:
+    """Update a drawing's category or visibility."""
+    conn = get_db()
+    parts = []
+    params: list = []
+    if category_id is not None:
+        parts.append("category_id = ?")
+        params.append(category_id if category_id > 0 else None)
+    if is_visible is not None:
+        parts.append("is_visible = ?")
+        params.append(1 if is_visible else 0)
+    if not parts:
+        conn.close()
+        return False
+    params.append(drawing_id)
+    cursor = conn.execute(
+        f"UPDATE drawings SET {', '.join(parts)} WHERE id = ?", params
+    )
+    conn.commit()
+    updated = cursor.rowcount > 0
+    conn.close()
+    return updated
+
+
+def delete_drawing(drawing_id: int) -> dict | None:
+    """Delete a drawing record. Returns the dict with filename before deletion."""
+    conn = get_db()
+    row = conn.execute("SELECT * FROM drawings WHERE id = ?", (drawing_id,)).fetchone()
+    if not row:
+        conn.close()
+        return None
+    result = dict(row)
+    conn.execute("DELETE FROM drawings WHERE id = ?", (drawing_id,))
+    conn.commit()
+    conn.close()
+    return result
+
+
+def get_drawing_categories() -> list[dict]:
+    """Return all drawing categories."""
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT * FROM drawing_categories ORDER BY sort_order, id"
+    ).fetchall()
+    result = [dict(r) for r in rows]
+    conn.close()
+    return result
+
+
+def create_drawing_category(name: str, sort_order: int = 0) -> int:
+    """Create a new drawing category. Returns the new ID."""
+    conn = get_db()
+    cursor = conn.execute(
+        "INSERT INTO drawing_categories (name, sort_order) VALUES (?, ?)",
+        (name.strip(), sort_order),
+    )
+    conn.commit()
+    cat_id = cursor.lastrowid
+    conn.close()
+    return cat_id
+
+
+def update_drawing_category(cat_id: int, name: str) -> bool:
+    """Update a drawing category name."""
+    conn = get_db()
+    cursor = conn.execute(
+        "UPDATE drawing_categories SET name = ? WHERE id = ?",
+        (name.strip(), cat_id),
+    )
+    conn.commit()
+    updated = cursor.rowcount > 0
+    conn.close()
+    return updated
+
+
+def delete_drawing_category(cat_id: int) -> bool:
+    """Delete a drawing category."""
+    conn = get_db()
+    cursor = conn.execute("DELETE FROM drawing_categories WHERE id = ?", (cat_id,))
+    conn.commit()
+    deleted = cursor.rowcount > 0
+    conn.close()
+    return deleted
 
 
 def get_random_words(count: int) -> list[tuple[str, str]]:

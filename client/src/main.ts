@@ -4,6 +4,7 @@ import './pages/home';
 import './pages/lobby';
 import './pages/game';
 import './pages/result';
+import './pages/gallery';
 import './pages/admin';
 import './style.css';
 
@@ -15,6 +16,7 @@ onStateChange(s => {
     game: 'page-game',
     result: 'page-result',
     admin: 'page-admin',
+    gallery: 'page-gallery',
   };
   Object.entries(pages).forEach(([name, id]) => {
     const el = document.getElementById(id);
@@ -24,8 +26,11 @@ onStateChange(s => {
 
 // Detect admin route
 const isAdmin = location.hash === '#/admin';
+const isGallery = location.hash === '#/gallery';
 if (isAdmin) {
   setState({ page: 'admin' });
+} else if (isGallery) {
+  setState({ page: 'gallery' });
 }
 
 async function loadConfig() {
@@ -42,7 +47,7 @@ async function loadConfig() {
 
 // Auto-reconnect on page refresh — only from URL params (not localStorage)
 async function tryReconnect() {
-  if (isAdmin) return;  // admin page, skip game reconnect
+  if (isAdmin || isGallery) return;  // admin/gallery page, skip game reconnect
   // Only read from URL params for auto-reconnect; localStorage is just for form pre-fill
   const sp = new URLSearchParams(location.search);
   const room = sp.get('room');

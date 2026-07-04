@@ -17,6 +17,13 @@ from db import (
     update_word,
     delete_word,
     seed_words_from_pool,
+    get_drawings,
+    update_drawing,
+    delete_drawing,
+    get_drawing_categories,
+    create_drawing_category,
+    update_drawing_category,
+    delete_drawing_category,
 )
 
 logger = logging.getLogger(__name__)
@@ -161,3 +168,84 @@ def seed_words(request: Request) -> dict:
     count = seed_words_from_pool()
     logger.info(f"Admin seeded {count} words from word pool")
     return {"count": count}
+
+
+# ---------------------------------------------------------------------------
+# Drawing management
+# ---------------------------------------------------------------------------
+
+class DrawingUpdate(BaseModel):
+    category_id: int = 0  # 0 = no category
+    is_visible: bool = False
+
+
+class CategoryCreate(BaseModel):
+    name: str
+
+
+class CategoryUpdate(BaseModel):
+    name: str
+
+
+@router.get("/drawings")
+def list_drawings(request: Request, page: int = 1, category_id: int = 0) -> dict:
+    _require_admin(request)
+    drawings, total = get_drawings(page=page, category_id=category_id)
+    return {"drawings": drawings, "total": total}
+
+
+@router.put("/drawings/{drawing_id}")
+def update_drawing_endpoint(request: Request, drawing_id: int, body: DrawingUpdate) -> dict:
+    _require_admin(request)
+    ok = update_drawing(drawing_id, category_id=body.category_id, is_visible=body.is_visible)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Drawing not found")
+    return {"ok": True}
+
+
+@router.delete("/drawings/{drawing_id}")
+def delete_drawing_endpoint(request: Request, drawing_id: int) -> dict:
+    _require_admin(request)
+    info = delete_drawing(drawing_id)
+    if not info:
+        raise HTTPException(status_code=404, detail="Drawing not found")
+    # Delete the image file
+    import os as _os
+    DRAWINGS_DIR = _os.environ.get("DRAWINGS_DIR", "drawings")
+    filepath = _os.path.join(DRAWINGS_DIR, info["filename"])
+    try:
+        _os.remove(filepath)
+    except Exception:
+        pass
+    return {"ok": True}
+
+
+@router.get("/drawing-categories")
+def list_drawing_categories(request: Request) -> list[dict]:
+    _require_admin(request)
+    return get_drawing_categories()
+
+
+@router.post("/drawing-categories")
+def create_category_endpoint(request: Request, body: CategoryCreate) -> dict:
+    _require_admin(request)
+    cat_id = create_drawing_category(body.name)
+    return {"id": cat_id, "name": body.name}
+
+
+@router.put("/drawing-categories/{cat_id}")
+def update_category_endpoint(request: Request, cat_id: int, body: CategoryUpdate) -> dict:
+    _require_admin(request)
+    ok = update_drawing_category(cat_id, body.name)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Category not found")
+    return {"ok": True}
+
+
+@router.delete("/drawing-categories/{cat_id}")
+def delete_category_endpoint(request: Request, cat_id: int) -> dict:
+    _require_admin(request)
+    ok = delete_drawing_category(cat_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Category not found")
+    return {"ok": True}

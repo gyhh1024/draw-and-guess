@@ -53,6 +53,10 @@ app.insertAdjacentHTML('beforeend', `
         <div id="room-list-container"></div>
         <p id="no-rooms-msg" class="text-sm text-muted" style="text-align:center;display:none;">暂无活跃房间</p>
       </div>
+
+      <div style="text-align:center;margin-top:16px;">
+        <a id="gallery-link" href="#/gallery" style="color:var(--primary);font-size:13px;text-decoration:none;">浏览画作画廊 →</a>
+      </div>
     </div>
 
     <p id="home-error" class="text-sm" style="color:var(--danger);margin-top:12px;display:none;"></p>
@@ -310,3 +314,10 @@ document.getElementById('refresh-rooms-btn')!.addEventListener('click', () => {
 });
 
 loadRoomList();
+
+// Gallery link navigation (SPA-style)
+document.getElementById('gallery-link')!.addEventListener('click', (e) => {
+  e.preventDefault();
+  location.hash = '#/gallery';
+  setState({ page: 'gallery' });
+});
